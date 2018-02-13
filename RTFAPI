@@ -1,0 +1,46 @@
+package com.baltsoft;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.TreeMap;
+
+public class Main {
+    public static void main(String[] args) throws IOException {
+        TreeMap params = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+        params.put("File", "C:\path\to\table1.rtf");
+        params.put("Secret", "5CQrDy1NNEUjiO6k");
+
+        CloseableHttpResponse response = ConvertApi.convert("rtf", "pdf", params);
+        System.out.println(EntityUtils.toString(response.getEntity(), "UTF-8"));
+    }
+}
+
+class ConvertApi {
+    public static CloseableHttpResponse convert(String srcFormat, String dstFormat, TreeMap params) throws IOException {
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        params.forEach((k, v) -> {
+            if(Files.exists(Paths.get(v))) {
+                builder.addBinaryBody(k, new File(v));
+            } else {
+                builder.addTextBody(k, v, ContentType.TEXT_PLAIN);
+            }
+        });
+
+        String authParam = params.get("secret") == null ? String.format("Token=%s", params.get("token")) : String.format("Secret=%s", params.get("secret"));
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpPost httpPost = new HttpPost(String.format("https://v2.convertapi.com/%s/to/%s?%s", srcFormat, dstFormat, authParam));
+        httpPost.setEntity(builder.build());
+        return httpClient.execute(httpPost);
+    }
+}
